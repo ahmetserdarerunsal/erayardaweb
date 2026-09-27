@@ -2,6 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { revalidatePath, updateTag } from "next/cache";
+import { writeAudit } from "@/lib/admin/audit";
 import { requireAdminSession, requirePublisher, requireYonetici } from "@/lib/admin/session";
 import { readImageInfo } from "@/lib/image-dimensions";
 import { CONTENT_TAGS } from "@/lib/public-content";
@@ -446,7 +447,7 @@ export async function setActivityPublication(
   activityId: string,
   publish: boolean,
 ): Promise<ActionResult> {
-  await requirePublisher();
+  const session = await requirePublisher();
   const supabase = await createSupabaseServerClient();
 
   if (publish) {
@@ -474,8 +475,14 @@ export async function setActivityPublication(
     .eq("id", activityId);
 
   if (error) return { ok: false, message: error.message };
+  await writeAudit(session, {
+    action: publish ? "yayımladı" : "taslağa aldı",
+    entityType: "paylaşım",
+    entityId: activityId,
+  });
+
   refreshActivities();
-  return { ok: true, message: publish ? "Faaliyet yayımlandı." : "Faaliyet taslağa alındı." };
+  return { ok: true, message: publish ? "Paylaşım yayımlandı." : "Paylaşım taslağa alındı." };
 }
 
 export type UploadedCover = {
@@ -578,10 +585,24 @@ export async function removeActivitySource(sourceId: string): Promise<ActionResu
 
 /** Silme geri alınamaz; şemada olduğu gibi yalnızca yöneticiye açık. */
 export async function deleteActivity(activityId: string): Promise<ActionResult> {
-  await requireYonetici();
+  const session = await requireYonetici();
   const supabase = await createSupabaseServerClient();
+  const { data: silinen } = await supabase
+    .from("activities")
+    .select("title")
+    .eq("id", activityId)
+    .maybeSingle();
+
   const { error } = await supabase.from("activities").delete().eq("id", activityId);
   if (error) return { ok: false, message: error.message };
+
+  await writeAudit(session, {
+    action: "sildi",
+    entityType: "paylaşım",
+    entityId: activityId,
+    changes: { başlık: silinen?.title ?? "?" },
+  });
+
   refreshActivities();
-  return { ok: true, message: "Faaliyet silindi." };
+  return { ok: true, message: "Paylaşım silindi." };
 }

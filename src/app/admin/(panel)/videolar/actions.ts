@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
+import { writeAudit } from "@/lib/admin/audit";
 import { requireAdminSession, requirePublisher } from "@/lib/admin/session";
 import { CONTENT_TAGS } from "@/lib/public-content";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -73,10 +74,17 @@ export async function createVideo(input: { url: string; title: string; descripti
 }
 
 export async function setVideoPublication(videoId: string, publish: boolean): Promise<ActionResult> {
-  await requirePublisher();
+  const session = await requirePublisher();
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("videos").update({ status: publish ? "published" : "draft", published_at: publish ? new Date().toISOString() : null }).eq("id", videoId);
   if (error) return { ok: false, message: error.message };
+
+  await writeAudit(session, {
+    action: publish ? "yayımladı" : "taslağa aldı",
+    entityType: "video",
+    entityId: videoId,
+  });
+
   refreshVideos();
   return { ok: true, message: publish ? "Video yayımlandı." : "Video taslağa alındı." };
 }

@@ -165,8 +165,7 @@ deploy gerekir.
 - `/admin` giriş ekranı (fotoğraflı bölünmüş düzen)
 - Oturum koruması, roller, yetkisiz/kurulum ekranları
 - Genel Bakış: canlı sayaçlar (faaliyet, albüm, video, okunmamış mesaj)
-- Fotoğraf, Video, Gelen Mesajlar ve **Faaliyetler** modülleri
-- Sol menü — hazır olmayan bölümler "Yakında" etiketiyle pasif
+- Panelin **on bölümünün tamamı** çalışır durumda; "Yakında" kalmadı
 
 ### Faaliyetler modülü — X gönderisinden içe aktarma
 
@@ -198,11 +197,33 @@ eklenir ve `confirms` alanına "gönderinin içeriği (birincil kaynak)" yazıl�
 
 Sol menüde `ready: false` olan her şey. Öncelik sırası:
 
-Medya Kütüphanesi, Sayfa Yönetimi, Site Ayarları, Kullanıcılar ve İşlem
-Geçmişi. Faaliyetler modülünde de şunlar yok: galeri (`activity_gallery`)
-yönetimi, sıralama (`sort_order`), öne çıkarma (`featured`) ve X dışındaki
-platformlardan içe aktarma — `social-posts.ts` bunun için yeni bir
-`SocialPlatformId` eklenecek şekilde yazıldı.
+Panel bölümlerinin tamamı yazıldı. Kalan eksikler:
+
+- **Faaliyet galerisi** panelden yönetilemiyor. Galeri X gönderisinden
+  otomatik doluyor; elle fotoğraf ekleme/çıkarma ekranı yok.
+- **Sıralama ve öne çıkarma** (`sort_order`, `featured`) arayüzde yok.
+- **X dışındaki platformlardan** içe aktarma yok. `social-posts.ts` yeni
+  bir `SocialPlatformId` eklenecek şekilde yazıldı.
+- **Yeni kullanıcı açma** Supabase panelinden yapılıyor. Davet akışı
+  e-posta servisi gerektirdiği için kurulmadı; Kullanıcılar ekranı
+  adımları yazıyor.
+
+### İşlem geçmişi
+
+`audit_logs` tablosuna yazma yetkisi bilerek `authenticated` rolüne
+verilmedi: kayıt bırakan kişinin o kaydı sonradan silememesi gerekiyor.
+Yazma `src/lib/admin/audit.ts` içinden secret key ile yapılır, okuma
+normal oturumla. Geçmiş yazımı asıl işlemi asla engellemez — hata olursa
+sunucu günlüğüne düşer, kullanıcının yaptığı iş geri alınmaz.
+
+Şu an yayımlama, taslağa alma ve silme işlemleri kaydediliyor.
+
+### Taslak / yayın ayrımı
+
+Sayfa Yönetimi `page_content` tablosunun iki sütununu kullanır:
+`draft_content` yazdığınız, `published_content` ziyaretçinin gördüğü.
+Yarım kalmış bir düzenleme siteye sızmaz. Yayımlama `can_publish`
+yetkisi ister.
 
 ### Statik → dinamik geçişi: tamamlandı
 
