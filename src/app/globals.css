@@ -1703,6 +1703,7 @@ a:focus-visible .activity-cta span {
   line-height: 1;
 }
 
+/* Gönderi metninin tamamı burada; paragraf araları `pre-line` ile korunuyor. */
 .activity-detail__summary {
   max-width: 44rem;
   margin: clamp(1.75rem, 3vw, 2.75rem) 0 0;
@@ -1711,27 +1712,34 @@ a:focus-visible .activity-cta span {
   font-weight: 600;
   letter-spacing: -0.03em;
   line-height: 1.4;
+  white-space: pre-line;
 }
 
 .activity-detail__cover {
   margin: clamp(3rem, 6vw, 6rem) 0 0;
 }
 
+/* Görseller kendi oranlarıyla durur.
+   Önceden kapağa 16/9, galeriye 3/2 dayatılıp `object-fit: cover`
+   veriliyordu; bu, dikey fotoğrafların üstünü ve altını kırpıyordu.
+   Yükseklik sınırı da yoksa uzun bir fotoğraf ekranı tek başına dolduruyor,
+   bu yüzden görünen alanın %72'siyle sınırlandırıldı. */
 .activity-detail__cover img,
 .activity-detail__gallery img {
-  width: 100%;
+  width: auto;
+  max-width: 100%;
   height: auto;
   display: block;
+  margin-inline: auto;
   background: var(--ivory-muted);
-  object-fit: cover;
 }
 
 .activity-detail__cover img {
-  aspect-ratio: 16 / 9;
+  max-height: 72dvh;
 }
 
 .activity-detail__gallery img {
-  aspect-ratio: 3 / 2;
+  max-height: 60dvh;
 }
 
 .activity-detail__cover figcaption,

@@ -5,7 +5,7 @@ import { Container } from "@/components/ui/Container";
 const lead = "Meclis çalışmaları, ziyaretler, toplantılar ve etkinlikler.";
 
 export const metadata: Metadata = {
-  title: "Faaliyetler",
+  title: "Paylaşımlar",
   description: lead,
 };
 
@@ -14,8 +14,8 @@ export default function ActivitiesPage() {
     <main id="ana-icerik" className="activities-page">
       <section className="activities-page__hero">
         <Container>
-          <p className="section-kicker">03 / Faaliyetler</p>
-          <h1>FAALİYETLER</h1>
+          <p className="section-kicker">03 / Paylaşımlar</p>
+          <h1>PAYLAŞIMLAR</h1>
           <p className="activities-page__lead">{lead}</p>
         </Container>
       </section>

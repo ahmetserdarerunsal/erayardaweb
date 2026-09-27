@@ -85,7 +85,14 @@ export type ActivityLocationId = "kartal" | "istanbul" | "ankara" | "diger";
  */
 export type ActivityKind = "calisma" | "katilim";
 
-export type ActivityImage = { src: string; alt: string; caption?: string };
+/** Boyutlar zorunlu: sabit bir oran dayatmak dikey fotoğrafları kırpıyordu. */
+export type ActivityImage = {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  caption?: string;
+};
 
 /**
  * Bir faaliyetin kaynağı. `confirms` alanı, kaynağın fiilen neyi doğruladığını

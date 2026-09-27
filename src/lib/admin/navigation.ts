@@ -16,7 +16,7 @@ export const adminNavigation: readonly AdminNavItem[] = [
   { label: "Fotoğraf Yönetimi", href: "/admin/fotograflar", ready: true },
   { label: "Video Yönetimi", href: "/admin/videolar", ready: true },
   { label: "Gelen Mesajlar", href: "/admin/mesajlar", ready: true, yoneticiOnly: true },
-  { label: "Faaliyetler", href: "/admin/faaliyetler", ready: true },
+  { label: "Paylaşımlar", href: "/admin/faaliyetler", ready: true },
   { label: "Medya Kütüphanesi", href: "/admin/medya", ready: false },
   { label: "Sayfa Yönetimi", href: "/admin/sayfalar", ready: false },
   { label: "Site Ayarları", href: "/admin/ayarlar", ready: false, yoneticiOnly: true },

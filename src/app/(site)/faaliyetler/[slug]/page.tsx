@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import { Container } from "@/components/ui/Container";
 import {
   activityDateTimeAttr,
-  activityKindLabels,
   categoryLabel,
   formatActivityRange,
   getActivityBySlug,
@@ -23,7 +22,7 @@ export async function generateMetadata({ params }: ActivityPageProps): Promise<M
   const { slug } = await params;
   const activity = await getActivityBySlug(slug);
 
-  if (!activity) return { title: "Faaliyet bulunamadı" };
+  if (!activity) return { title: "Paylaşım bulunamadı" };
 
   return { title: activity.title, description: activity.summary };
 }
@@ -38,16 +37,17 @@ export default async function ActivityDetailPage({ params }: ActivityPageProps) 
     <main id="ana-icerik" className="activity-detail">
       <Container>
         <Link className="arrow-link activity-detail__back" href="/faaliyetler">
-          Faaliyetler
+          Paylaşımlar
           <span aria-hidden="true">↙</span>
         </Link>
 
+        {/* Tür etiketi ("katılım sağlanan etkinlik" vb.) ziyaretçiye bir şey
+            anlatmıyordu, kaldırıldı — alan veritabanında duruyor. Konum da
+            yalnızca gerçekten biliniyorsa yazılıyor; "Diğer" yazmanın
+            okuyucuya faydası yok. */}
         <p className="activity-meta">
-          <span className="activity-meta__kind" data-kind={activity.kind}>
-            {activityKindLabels[activity.kind]}
-          </span>
           <time dateTime={activityDateTimeAttr(activity)}>{formatActivityRange(activity)}</time>
-          <span>{locationLabel(activity.location)}</span>
+          {activity.location !== "diger" ? <span>{locationLabel(activity.location)}</span> : null}
         </p>
 
         <h1>{activity.title}</h1>
@@ -55,28 +55,35 @@ export default async function ActivityDetailPage({ params }: ActivityPageProps) 
 
         {activity.cover ? (
           <figure className="activity-detail__cover">
+            {/* Boyutlar görselin kendisinden geliyor: sabit 16:9 verilince
+                dikey fotoğraflar kırpılıyordu. */}
             <Image
               src={activity.cover.src}
               alt={activity.cover.alt}
-              width={1600}
-              height={900}
+              width={activity.cover.width}
+              height={activity.cover.height}
+              sizes="(max-width: 820px) 100vw, 70rem"
               quality={90}
             />
             {activity.cover.caption ? <figcaption>{activity.cover.caption}</figcaption> : null}
           </figure>
         ) : null}
 
-        <div className="activity-detail__body">
-          {activity.body.map((paragraph) => (
-            <p key={paragraph}>{paragraph}</p>
-          ))}
-        </div>
+        {/* Ayrı gövde bloğu kaldırıldı: metnin tamamı başlığın hemen altında
+            bir kez gösteriliyor, aksi hâlde aynı yazı hem üstte hem altta
+            görünüyordu. */}
 
         {activity.gallery.length > 0 ? (
           <div className="activity-detail__gallery">
             {activity.gallery.map((image) => (
               <figure key={image.src}>
-                <Image src={image.src} alt={image.alt} width={1200} height={800} />
+                <Image
+                  src={image.src}
+                  alt={image.alt}
+                  width={image.width}
+                  height={image.height}
+                  sizes="(max-width: 820px) 100vw, 34rem"
+                />
                 {image.caption ? <figcaption>{image.caption}</figcaption> : null}
               </figure>
             ))}

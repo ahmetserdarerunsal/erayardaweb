@@ -8,7 +8,7 @@ import { CONTENT_TAGS } from "@/lib/public-content";
 import { fetchSocialPost, type FetchedSocialPost } from "@/lib/social-posts";
 import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES, MEDIA_BUCKET } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { ActivityCategoryId, ActivityKind, ActivityLocationId } from "@/types/content";
+import type { ActivityCategoryId, ActivityLocationId } from "@/types/content";
 import type { ActionResult } from "../fotograflar/actions";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
@@ -37,7 +37,6 @@ const VALID_CATEGORIES: readonly ActivityCategoryId[] = [
   "ziyaretler",
 ];
 const VALID_LOCATIONS: readonly ActivityLocationId[] = ["kartal", "istanbul", "ankara", "diger"];
-const VALID_KINDS: readonly ActivityKind[] = ["calisma", "katilim"];
 
 const EXACT_DATE = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/;
 const MONTH_ONLY = /^\d{4}-(?:0[1-9]|1[0-2])$/;
@@ -63,12 +62,13 @@ function deriveTitle(post: FetchedSocialPost): string {
   return truncateAtWord(sentence, 90);
 }
 
-const SUMMARY_LIMIT = 220;
-
 /**
- * Kartta iki satırlık özet, detay sayfasında tam metin gösterilir. Metin
- * zaten kısaysa gövde boş bırakılır; aksi hâlde detay sayfasında aynı cümle
- * iki kez görünürdü.
+ * Gönderi metninin tamamı TEK alana, özete yazılır; gövde boş bırakılır.
+ *
+ * Önce özete kısaltılmış bir alıntı, gövdeye de tam metin konuyordu; detay
+ * sayfası ikisini de gösterdiği için aynı yazı hem üstte hem altta
+ * çıkıyordu. Paragraf araları korunuyor — detay sayfası `pre-line` ile
+ * basıyor, kartta ise satır sonları boşluğa dönüşüp iki satıra kırpılıyor.
  */
 function splitPostText(text: string): { summary: string; body: string[] } {
   const paragraphs = text
@@ -76,10 +76,7 @@ function splitPostText(text: string): { summary: string; body: string[] } {
     .map((part) => part.replace(/\n/g, " ").trim())
     .filter(Boolean);
 
-  if (text.length <= SUMMARY_LIMIT) {
-    return { summary: paragraphs.join(" "), body: [] };
-  }
-  return { summary: truncateAtWord(text.replace(/\n+/g, " "), SUMMARY_LIMIT), body: paragraphs };
+  return { summary: paragraphs.join("\n\n"), body: [] };
 }
 
 /**
@@ -253,12 +250,12 @@ export async function createBlankActivity(title: string): Promise<ActionResult> 
 
 export type ActivityFormInput = {
   title: string;
+  /** Paylaşımın tam metni. Ayrı bir gövde alanı yok: detay sayfası tek
+      metin gösteriyor, ikiye bölününce aynı yazı iki kez çıkıyordu. */
   summary: string;
-  body: string;
   /** YYYY-MM-DD, YYYY-MM veya boş. */
   eventDate: string;
   eventDateApprox: string;
-  kind: string;
   location: string;
   categories: string[];
   missingInfo: string;
@@ -290,7 +287,6 @@ export async function updateActivity(
   const location = VALID_LOCATIONS.includes(input.location as ActivityLocationId)
     ? input.location
     : "diger";
-  const kind = VALID_KINDS.includes(input.kind as ActivityKind) ? input.kind : "katilim";
 
   const supabase = await createSupabaseServerClient();
 
@@ -313,16 +309,11 @@ export async function updateActivity(
     .from("activities")
     .update({
       title,
-      summary: input.summary.trim().slice(0, 600),
-      body: input.body
-        .split(/\n{2,}/)
-        .map((part) => part.replace(/\n/g, " ").trim())
-        .filter(Boolean),
+      summary: input.summary.trim().slice(0, 4000),
       event_date: eventDate || null,
       event_date_approx: eventDate ? null : eventDateApprox || null,
       categories,
       location,
-      kind,
       missing_info: input.missingInfo
         .split("\n")
         .map((line) => line.trim())

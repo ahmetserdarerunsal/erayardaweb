@@ -29,12 +29,10 @@ type Activity = {
   slug: string;
   title: string;
   summary: string;
-  body: unknown;
   event_date: string | null;
   event_date_approx: string | null;
   categories: string[];
   location: string;
-  kind: string;
   cover_media_id: string | null;
   status: string;
   missing_info: string[];
@@ -66,17 +64,8 @@ const LOCATIONS = [
   { id: "diger", label: "Belirtilmedi" },
 ];
 
-const KINDS = [
-  { id: "calisma", label: "Yürütülen çalışma" },
-  { id: "katilim", label: "Katılım sağlanan etkinlik" },
-];
-
 function storageUrl(path: string) {
   return `${SUPABASE_URL}/storage/v1/object/public/${MEDIA_BUCKET}/${path}`;
-}
-
-function bodyToText(body: unknown): string {
-  return Array.isArray(body) ? body.filter((part) => typeof part === "string").join("\n\n") : "";
 }
 
 function formatDate(activity: Activity): string {
@@ -184,7 +173,7 @@ export function ActivityManager({
       <section className="admin-card admin-manage-head">
         <div>
           <p className="admin-eyebrow">Gönderiden ekle</p>
-          <h2>Faaliyetler</h2>
+          <h2>Paylaşımlar</h2>
           <p>
             Bir X gönderisinin bağlantısını yapıştırın; metni, tarihi ve varsa görseli
             gönderiden alınır, gönderi de kaynak olarak kaydedilir. Kayıt taslak açılır —
@@ -229,7 +218,7 @@ export function ActivityManager({
           action={(formData) => run(() => createBlankActivity(String(formData.get("title") ?? "")))}
         >
           <div className="admin-field">
-            <label htmlFor="blank-title">Bağlantısı olmayan faaliyet</label>
+            <label htmlFor="blank-title">Bağlantısı olmayan paylaşım</label>
             <input id="blank-title" name="title" maxLength={180} placeholder="Başlık yazıp ekleyin" />
           </div>
           <button className="admin-btn admin-btn--ghost" disabled={pending}>
@@ -246,12 +235,12 @@ export function ActivityManager({
 
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2>Kayıtlı faaliyetler</h2>
-          <span>{activities.length} kayıt</span>
+          <h2>Kayıtlı paylaşımlar</h2>
+          <span>{activities.length} paylaşım</span>
         </div>
 
         {activities.length === 0 ? (
-          <p className="admin-empty">Henüz faaliyet eklenmedi.</p>
+          <p className="admin-empty">Henüz paylaşım eklenmedi.</p>
         ) : (
           <div className="admin-record-list">
             {activities.map((activity) => {
@@ -277,8 +266,6 @@ export function ActivityManager({
                     <p className="admin-eyebrow">
                       {LOCATIONS.find((item) => item.id === activity.location)?.label ??
                         activity.location}
-                      {" · "}
-                      {KINDS.find((item) => item.id === activity.kind)?.label ?? activity.kind}
                     </p>
 
                     {isEditing ? (
@@ -290,10 +277,8 @@ export function ActivityManager({
                             updateActivity(activity.id, {
                               title: String(formData.get("title") ?? ""),
                               summary: String(formData.get("summary") ?? ""),
-                              body: String(formData.get("body") ?? ""),
                               eventDate: String(formData.get("eventDate") ?? ""),
                               eventDateApprox: String(formData.get("eventDateApprox") ?? ""),
-                              kind: String(formData.get("kind") ?? ""),
                               location: String(formData.get("location") ?? ""),
                               categories: formData.getAll("categories").map(String),
                               missingInfo: String(formData.get("missingInfo") ?? ""),
@@ -312,28 +297,20 @@ export function ActivityManager({
                           />
                         </div>
 
+                        {/* Tek metin alanı. Önce ayrı bir "detay metni"
+                            vardı; detay sayfası ikisini de bastığı için aynı
+                            yazı hem üstte hem altta görünüyordu. */}
                         <div className="admin-field">
                           <label htmlFor={`summary-${activity.id}`}>
-                            Özet — kartta iki satır görünür
+                            Metin — kartta ilk iki satırı görünür, boş satır
+                            yeni paragraf açar
                           </label>
                           <textarea
                             id={`summary-${activity.id}`}
                             name="summary"
                             defaultValue={activity.summary}
-                            rows={2}
-                            maxLength={600}
-                          />
-                        </div>
-
-                        <div className="admin-field">
-                          <label htmlFor={`body-${activity.id}`}>
-                            Detay metni — boş satır yeni paragraf açar
-                          </label>
-                          <textarea
-                            id={`body-${activity.id}`}
-                            name="body"
-                            defaultValue={bodyToText(activity.body)}
-                            rows={5}
+                            rows={6}
+                            maxLength={4000}
                           />
                         </div>
 
@@ -359,17 +336,6 @@ export function ActivityManager({
                             type="month"
                             defaultValue={activity.event_date_approx ?? ""}
                           />
-                        </div>
-
-                        <div className="admin-field">
-                          <label htmlFor={`kind-${activity.id}`}>Tür</label>
-                          <select id={`kind-${activity.id}`} name="kind" defaultValue={activity.kind}>
-                            {KINDS.map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.label}
-                              </option>
-                            ))}
-                          </select>
                         </div>
 
                         <div className="admin-field">

@@ -10,8 +10,8 @@ export function Intro({ title }: { title: string }) {
     >
       <Container>
         <header className="activities-intro__header">
-          <p className="section-kicker">03 / Faaliyetler</p>
-          <h2 id="activities-intro-heading">FAALİYETLER</h2>
+          <p className="section-kicker">03 / Paylaşımlar</p>
+          <h2 id="activities-intro-heading">PAYLAŞIMLAR</h2>
         </header>
 
         <div className="activities-intro__body">
@@ -22,9 +22,9 @@ export function Intro({ title }: { title: string }) {
           </p>
         </div>
 
-        <nav className="activities-intro__links" aria-label="Faaliyetler">
+        <nav className="activities-intro__links" aria-label="Paylaşımlar">
           <Link href="/faaliyetler">
-            <span className="activities-intro__link-title">Tüm Faaliyetleri Gör</span>
+            <span className="activities-intro__link-title">Tüm Paylaşımları Gör</span>
             <span aria-hidden="true">↗</span>
           </Link>
         </nav>

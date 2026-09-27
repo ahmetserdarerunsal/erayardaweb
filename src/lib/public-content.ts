@@ -190,7 +190,15 @@ export const getPublishedActivities = unstable_cache(
       .map((row): PublishedActivity => {
         const toImage = (mediaId: string, caption?: string | null): ActivityImage | null => {
           const item = media.get(mediaId);
-          return item ? { src: storageUrl(item.storage_path), alt: item.alt_text, caption: caption ?? undefined } : null;
+          return item
+            ? {
+                src: storageUrl(item.storage_path),
+                alt: item.alt_text,
+                width: item.width,
+                height: item.height,
+                caption: caption ?? undefined,
+              }
+            : null;
         };
         const gallery = (galleriesResult.data ?? [])
           .filter((item) => item.activity_id === row.id)

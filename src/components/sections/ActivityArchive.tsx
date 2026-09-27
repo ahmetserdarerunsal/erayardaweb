@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/ui/Container";
 import {
-  activityKindLabels,
   categoryLabel,
   getPublishedActivities,
 } from "@/lib/public-content";
@@ -30,9 +29,11 @@ function ActivityCard({
   index: number;
 }) {
   const ordinal = String(index + 1).padStart(2, "0");
+  // Tür etiketleri ("katılım sağlanan etkinlik" vb.) arayüzden kaldırıldı;
+  // kategorisi olmayan kayıtta yedek olarak yalın bir söz kullanılıyor.
   const placeholderLabel = activity.categories[0]
     ? categoryLabel(activity.categories[0])
-    : activityKindLabels[activity.kind];
+    : "Paylaşım";
 
   return (
     <article className="activity-card">
@@ -71,13 +72,13 @@ export async function ActivityArchive() {
 
   return (
     // Başlık hero'da zaten var; tekrar eden etiket satırı kaldırıldı.
-    <section className="activity-archive" aria-label="Faaliyet arşivi">
+    <section className="activity-archive" aria-label="Paylaşımlar arşivi">
       <Container>
         {entries.length === 0 ? (
           <div className="activity-empty">
             <p className="status-label">İçerik hazırlığında</p>
             <p className="activity-empty__lead">
-              Doğrulanmış faaliyet içerikleri hazır olduğunda bu arşivde güncelden
+              Paylaşımlar hazır olduğunda bu arşivde güncelden
               eskiye doğru yayımlanacaktır.
             </p>
           </div>
