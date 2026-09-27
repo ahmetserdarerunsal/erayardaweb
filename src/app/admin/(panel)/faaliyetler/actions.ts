@@ -5,7 +5,12 @@ import { revalidatePath, updateTag } from "next/cache";
 import { requireAdminSession, requirePublisher, requireYonetici } from "@/lib/admin/session";
 import { readImageInfo } from "@/lib/image-dimensions";
 import { CONTENT_TAGS } from "@/lib/public-content";
-import { fetchSocialPost, type FetchedSocialPost } from "@/lib/social-posts";
+import {
+  analyzeSocialPostUrl,
+  fetchSocialPost,
+  type FetchedSocialPost,
+  type PostImage,
+} from "@/lib/social-posts";
 import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES, MEDIA_BUCKET } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ActivityCategoryId, ActivityLocationId } from "@/types/content";
@@ -86,7 +91,7 @@ function splitPostText(text: string): { summary: string; body: string[] } {
  * değişirse sitedeki kapak kırılırdı. `media_library.width/height` zorunlu
  * olduğu için boyutu okunamayan dosya kaydedilmez.
  */
-async function importCover(
+async function importImage(
   supabase: SupabaseServerClient,
   activityId: string,
   imageUrl: string,
@@ -122,7 +127,7 @@ async function importCover(
       .from("media_library")
       .insert({
         storage_path: storagePath,
-        file_name: storagePath.split("/").pop() ?? "kapak.jpg",
+        file_name: storagePath.split("/").pop() ?? "gorsel.jpg",
         mime_type: contentType,
         size_bytes: bytes.length,
         width: info.width,
@@ -204,24 +209,134 @@ export async function createActivityFromPost(url: string): Promise<ActionResult>
     retrieved_at: new Date().toISOString().slice(0, 10),
   });
 
-  let coverImported = false;
-  if (post.imageUrl) {
-    const mediaId = await importCover(supabase, activity.id, post.imageUrl, session.userId);
-    if (mediaId) {
-      await supabase.from("activities").update({ cover_media_id: mediaId }).eq("id", activity.id);
-      coverImported = true;
-    }
-  }
+  const alinan = await importPostImages(supabase, activity.id, post.images, session.userId);
 
   refreshActivities();
 
   const notes = [
-    coverImported ? "kapak gönderiden alındı" : "kapak bulunamadı",
+    post.images.length === 0
+      ? "gönderide fotoğraf yok"
+      : `${alinan}/${post.images.length} fotoğraf alındı`,
     sourceError ? "KAYNAK EKLENEMEDİ" : "gönderi kaynak olarak eklendi",
   ];
   return {
     ok: true,
     message: `Taslak oluşturuldu (${notes.join(", ")}). Bilgileri gözden geçirip yayımlayın.`,
+  };
+}
+
+/**
+ * Gönderinin bütün fotoğraflarını indirir: ilki kapak, kalanlar galeri.
+ *
+ * Tek tek indiriliyor; biri başarısız olursa diğerleri yine de kaydedilsin
+ * diye. Geri dönen sayı gerçekten alınan fotoğraf sayısıdır, denenen değil.
+ */
+async function importPostImages(
+  supabase: SupabaseServerClient,
+  activityId: string,
+  images: readonly PostImage[],
+  userId: string,
+  options: { setCover: boolean; galleryFrom?: number } = { setCover: true },
+): Promise<number> {
+  const mediaIds: string[] = [];
+
+  for (const image of images) {
+    const mediaId = await importImage(supabase, activityId, image.url, userId);
+    if (mediaId) mediaIds.push(mediaId);
+  }
+
+  if (mediaIds.length === 0) return 0;
+
+  // Kapak yalnızca henüz yoksa atanır; yenileme sırasında mevcut kapağın
+  // üzerine yazmak yöneticinin seçtiği görseli sessizce değiştirirdi.
+  const galleryIds = options.setCover ? mediaIds.slice(1) : mediaIds;
+  if (options.setCover) {
+    await supabase
+      .from("activities")
+      .update({ cover_media_id: mediaIds[0] })
+      .eq("id", activityId);
+  }
+
+  if (galleryIds.length > 0) {
+    const offset = options.galleryFrom ?? 0;
+    await supabase.from("activity_gallery").insert(
+      galleryIds.map((mediaId, index) => ({
+        activity_id: activityId,
+        media_id: mediaId,
+        sort_order: offset + index,
+      })),
+    );
+  }
+
+  return mediaIds.length;
+}
+
+/**
+ * Kaydı bağlı olduğu X gönderisinden yeniden okur.
+ *
+ * Eski sürüm metni 220 karakterde kesiyor ve yalnızca ilk fotoğrafı
+ * alıyordu; bu eylem o kayıtları elle düzeltmeden tamamlamayı sağlar.
+ * Başlık, kategori, konum gibi elle girilen alanlara dokunulmaz.
+ */
+export async function refreshActivityFromPost(activityId: string): Promise<ActionResult> {
+  const session = await requireAdminSession();
+  const supabase = await createSupabaseServerClient();
+
+  const { data: sources } = await supabase
+    .from("activity_sources")
+    .select("url")
+    .eq("activity_id", activityId)
+    .eq("publisher", "X");
+
+  const postUrl = sources?.find((item) => analyzeSocialPostUrl(item.url).supported)?.url;
+  if (!postUrl) {
+    return { ok: false, message: "Bu kayda bağlı bir X gönderisi yok." };
+  }
+
+  const result = await fetchSocialPost(postUrl);
+  if (!result.ok) return { ok: false, message: result.message };
+  const post = result.post;
+
+  const { summary } = splitPostText(post.text);
+  if (!summary) {
+    return { ok: false, message: "Gönderi metni okunamadı; kayıt değiştirilmedi." };
+  }
+
+  const guncelleme: Record<string, unknown> = { summary, body: [], updated_by: session.userId };
+  if (post.date) guncelleme.event_date = post.date;
+
+  const { error } = await supabase.from("activities").update(guncelleme).eq("id", activityId);
+  if (error) return { ok: false, message: error.message };
+
+  // Eksik fotoğraflar tamamlanır; zaten kayıtlı olanlar yeniden indirilmez.
+  const { count: mevcutGaleri } = await supabase
+    .from("activity_gallery")
+    .select("*", { count: "exact", head: true })
+    .eq("activity_id", activityId);
+  const { data: kayit } = await supabase
+    .from("activities")
+    .select("cover_media_id")
+    .eq("id", activityId)
+    .maybeSingle();
+
+  const kayitliGorsel = (kayit?.cover_media_id ? 1 : 0) + (mevcutGaleri ?? 0);
+  let eklenen = 0;
+  if (post.images.length > kayitliGorsel) {
+    eklenen = await importPostImages(
+      supabase,
+      activityId,
+      post.images.slice(kayitliGorsel),
+      session.userId,
+      { setCover: !kayit?.cover_media_id, galleryFrom: mevcutGaleri ?? 0 },
+    );
+  }
+
+  refreshActivities();
+  return {
+    ok: true,
+    message: `Gönderiden güncellendi: ${summary.length} karakter metin${
+      eklenen ? `, ${eklenen} fotoğraf eklendi` : ""
+    }.`,
   };
 }
 

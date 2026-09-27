@@ -4,6 +4,16 @@
  * KURAL: buradan dönen her alan gönderinin kendisinden gelir. Okunamayan
  * bilgi tahmin edilmez; `warnings` ile yöneticiye bildirilir ve kayıt taslak
  * kalır. Tarihsiz kayıt zaten veritabanı kısıtıyla yayımlanamaz.
+ *
+ * Üç kaynak sırayla denenir, çünkü hiçbiri tek başına yetmiyor:
+ *
+ *   1. cdn.syndication.twimg.com — resmî gömme aracının kullandığı JSON.
+ *      Bütün fotoğrafları gerçek boyutlarıyla, kesin tarihi ve metni verir.
+ *      Ama uzun gönderilerde metni ~280 karakterde keser.
+ *   2. Gönderi sayfasının HTML'i — uzun gönderilerde "daha fazla göster"in
+ *      arkasındaki tam metin (NoteTweet) yalnızca burada bulunuyor.
+ *   3. publish.x.com/oembed — ilk ikisi yanıt vermezse metin ve tarih için
+ *      son çare. Fotoğraf vermez.
  */
 
 export type SocialPlatformId = "x";
@@ -105,106 +115,131 @@ function stripTags(value: string): string {
 }
 
 /**
- * oEmbed yanıtındaki blockquote'un ilk paragrafı gönderi metnidir.
- *
- * X, gönderiye iliştirilen medyayı `pic.twitter.com/...`, alıntılanan
+ * X, gönderiye iliştirilen medyayı `pic.twitter.com/...`, alıntıladığı
  * bağlantıyı da `https://t.co/...` olarak metnin SONUNA yazar. Bunlar metnin
  * parçası değil, gösterim artığıdır. Yalnızca sondakiler atılır — metnin
  * içinde geçen bağlantıyı yazarın kendisi yazmıştır, korunur.
  */
 const TRAILING_MEDIA_MARKER = /\s*(?:https:\/\/t\.co\/\w+|pic\.(?:twitter|x)\.com\/\w+)$/;
 
-function extractText(html: string): string {
-  const paragraph = html.match(/<p[^>]*>([\s\S]*?)<\/p>/i)?.[1];
-  if (!paragraph) return "";
-
-  let text = stripTags(paragraph).replace(/[ \t]+\n/g, "\n").trim();
+function trimTrailingMedia(value: string): string {
+  let text = value.trim();
   while (TRAILING_MEDIA_MARKER.test(text)) {
     text = text.replace(TRAILING_MEDIA_MARKER, "").trim();
   }
   return text;
 }
 
-const ENGLISH_MONTHS = [
-  "january",
-  "february",
-  "march",
-  "april",
-  "may",
-  "june",
-  "july",
-  "august",
-  "september",
-  "october",
-  "november",
-  "december",
-];
-
-/**
- * Blockquote'un son bağlantısı gönderi tarihidir. oEmbed'i bilerek `lang=en`
- * ile çağırıyoruz: yerelleştirilmiş ay adları çözümlemeyi kırılgan yapar.
- */
-function extractDate(html: string): string | null {
-  const anchorTexts = [...html.matchAll(/<a[^>]*>([\s\S]*?)<\/a>/gi)].map((match) =>
-    stripTags(match[1]).trim(),
-  );
-
-  for (const text of anchorTexts.reverse()) {
-    const parts = text.match(/^([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})$/);
-    if (!parts) continue;
-
-    const month = ENGLISH_MONTHS.indexOf(parts[1].toLowerCase());
-    const day = Number(parts[2]);
-    if (month < 0 || day < 1 || day > 31) continue;
-
-    return `${parts[3]}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-
-  return null;
-}
-
-/** Tarayıcı taklidi yapmıyoruz; X bu kimlikle de meta etiketlerini veriyor. */
+/** Tarayıcı taklidi yapmıyoruz; X bu kimlikle de yanıt veriyor. */
 const LINK_PREVIEW_UA = "ErayArdaSite/1.0 (+link-preview)";
 
+export type PostImage = { url: string; width: number; height: number };
+
+type SyndicationPhoto = { url?: string; width?: number; height?: number };
+type SyndicationResponse = {
+  text?: string;
+  display_text_range?: [number, number];
+  created_at?: string;
+  photos?: SyndicationPhoto[];
+  user?: { name?: string; screen_name?: string };
+};
+
 /**
- * Gönderinin kendi görselini arar.
- *
- * Metin gönderilerinde `og:image` yazarın 200x200 profil fotoğrafıdır; onu
- * kapak yapmak 16:9 kartta kötü görünür. Bir bağlantı paylaşımında ise
- * `card_img` gelir, o da üçüncü tarafın görselidir. Bu yüzden yalnızca
- * gönderinin kendi medyasını taşıyan yollar kabul edilir — fotoğraf
- * `/media/`, video ve GIF kapakları ise `*_video_thumb/` altındadır.
+ * Resmî gömme aracının JSON'u. Bütün fotoğraflar ve kesin tarih buradan.
+ * `token` herhangi bir değer olabiliyor; uç nokta belgelenmemiş ama X'in
+ * kendi embed widget'ının kullandığı adres.
  */
-const POST_MEDIA_PATHS = [
-  "/media/",
-  "/amplify_video_thumb/",
-  "/ext_tw_video_thumb/",
-  "/tweet_video_thumb/",
-];
-async function findPostImage(pageUrl: string): Promise<string | null> {
+async function fetchSyndication(postId: string): Promise<SyndicationResponse | null> {
+  try {
+    const response = await fetch(
+      `https://cdn.syndication.twimg.com/tweet-result?id=${encodeURIComponent(postId)}&lang=tr&token=a`,
+      {
+        headers: { accept: "application/json", "user-agent": LINK_PREVIEW_UA },
+        signal: AbortSignal.timeout(12000),
+        cache: "no-store",
+      },
+    );
+    if (!response.ok) return null;
+    return (await response.json()) as SyndicationResponse;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Uzun gönderilerin ("daha fazla göster") tam metni.
+ *
+ * Ne oEmbed ne de syndication bunu veriyor; ikisi de ~280 karakterde kesiyor.
+ * Metin yalnızca gönderi sayfasının sunucu tarafı yükünde, `note_tweet_results`
+ * bloğunun içinde bulunuyor. Blok yoksa gönderi zaten kısa demektir.
+ */
+async function fetchLongFormText(pageUrl: string): Promise<string | null> {
   try {
     const response = await fetch(pageUrl, {
       headers: { "user-agent": LINK_PREVIEW_UA, accept: "text/html" },
-      signal: AbortSignal.timeout(9000),
+      signal: AbortSignal.timeout(12000),
       cache: "no-store",
     });
     if (!response.ok) return null;
 
-    const html = (await response.text()).slice(0, 400_000);
-    const raw =
-      html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i)?.[1] ??
-      html.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i)?.[1];
-    if (!raw) return null;
+    const html = await response.text();
+    const start = html.indexOf("note_tweet_results");
+    if (start < 0) return null;
 
-    const image = new URL(decodeEntities(raw));
-    const isPostMedia =
-      image.hostname === "pbs.twimg.com" &&
-      POST_MEDIA_PATHS.some((prefix) => image.pathname.startsWith(prefix));
-    if (!isPostMedia) return null;
+    const block = html.slice(start, start + 8000);
+    const match = block.match(/text:"((?:[^"\\]|\\.)*)"/);
+    if (!match) return null;
 
-    image.searchParams.set("format", "jpg");
-    image.searchParams.set("name", "large");
-    return image.toString();
+    const text = match[1]
+      .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
+      .replace(/\\n/g, "\n")
+      .replace(/\\t/g, "\t")
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, "\\");
+
+    return text.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+const ENGLISH_MONTHS = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+];
+
+/**
+ * oEmbed yedeğinde tarih, blockquote'un son bağlantısındadır. `lang=en` ile
+ * çağırıyoruz: yerelleştirilmiş ay adları çözümlemeyi kırılgan yapar.
+ */
+function extractDateFromOEmbed(html: string): string | null {
+  const anchors = [...html.matchAll(/<a[^>]*>([\s\S]*?)<\/a>/gi)].map((m) => stripTags(m[1]).trim());
+
+  for (const text of anchors.reverse()) {
+    const parts = text.match(/^([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})$/);
+    if (!parts) continue;
+    const month = ENGLISH_MONTHS.indexOf(parts[1].toLowerCase());
+    const day = Number(parts[2]);
+    if (month < 0 || day < 1 || day > 31) continue;
+    return `${parts[3]}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  return null;
+}
+
+type OEmbedResponse = { author_name?: string; author_url?: string; html?: string };
+
+async function fetchOEmbed(canonicalUrl: string): Promise<OEmbedResponse | null> {
+  try {
+    const response = await fetch(
+      `https://publish.x.com/oembed?url=${encodeURIComponent(canonicalUrl)}&omit_script=1&dnt=true&hide_thread=1&lang=en`,
+      {
+        headers: { accept: "application/json" },
+        signal: AbortSignal.timeout(12000),
+        cache: "no-store",
+      },
+    );
+    if (!response.ok) return null;
+    return (await response.json()) as OEmbedResponse;
   } catch {
     return null;
   }
@@ -219,18 +254,11 @@ export type FetchedSocialPost = {
   text: string;
   /** ISO 8601 (YYYY-MM-DD); okunamazsa null. */
   date: string | null;
-  imageUrl: string | null;
+  /** Gönderinin bütün fotoğrafları, paylaşıldıkları sırayla. */
+  images: PostImage[];
   /** Yöneticiye gösterilecek eksikler. */
   warnings: string[];
 };
-
-type OEmbedResponse = { author_name?: string; author_url?: string; html?: string; url?: string };
-
-/**
- * oEmbed uç noktası publish.twitter.com'dan publish.x.com'a taşındı; eski
- * adres 301 veriyor, doğrudan yenisini çağırıyoruz.
- */
-const X_OEMBED_ENDPOINT = "https://publish.x.com/oembed";
 
 export async function fetchSocialPost(
   input: string,
@@ -240,59 +268,79 @@ export async function fetchSocialPost(
     return { ok: false, message: analysis.message ?? "Bağlantı desteklenmiyor." };
   }
 
-  const endpoint = `${X_OEMBED_ENDPOINT}?url=${encodeURIComponent(
-    analysis.canonicalUrl,
-  )}&omit_script=1&dnt=true&hide_thread=1&lang=en`;
+  const { canonicalUrl, postId } = analysis;
 
-  let payload: OEmbedResponse;
-  try {
-    const response = await fetch(endpoint, {
-      headers: { accept: "application/json" },
-      signal: AbortSignal.timeout(12000),
-      cache: "no-store",
-    });
-    if (response.status === 404) {
-      return {
-        ok: false,
-        message: "Gönderi bulunamadı. Silinmiş veya gizli bir hesaba ait olabilir.",
-      };
-    }
-    if (!response.ok) {
-      return {
-        ok: false,
-        message: `X yanıt vermedi (HTTP ${response.status}). Bir süre sonra tekrar deneyin.`,
-      };
-    }
-    payload = (await response.json()) as OEmbedResponse;
-  } catch {
-    return { ok: false, message: "X'e ulaşılamadı. Bağlantıyı ve internet erişimini kontrol edin." };
+  // Üçü paralel: biri yanıt vermezse diğerleri yine de sonuç üretir.
+  const [syndication, longForm, oembed] = await Promise.all([
+    fetchSyndication(postId),
+    fetchLongFormText(canonicalUrl),
+    fetchOEmbed(canonicalUrl),
+  ]);
+
+  if (!syndication && !oembed) {
+    return {
+      ok: false,
+      message:
+        "Gönderi okunamadı. Silinmiş, gizli bir hesaba ait olabilir ya da X geçici olarak yanıt vermiyor.",
+    };
   }
 
-  const html = payload.html ?? "";
-  const text = extractText(html);
-  const date = extractDate(html);
-  const imageUrl = await findPostImage(analysis.canonicalUrl);
+  // Metin: uzun gönderi > syndication (gösterilen aralıkla kırpılmış) > oEmbed.
+  const syndicationText = syndication?.text
+    ? trimTrailingMedia(syndication.text.slice(0, syndication.display_text_range?.[1]))
+    : "";
+  const oembedParagraph = oembed?.html?.match(/<p[^>]*>([\s\S]*?)<\/p>/i)?.[1];
+  const oembedText = oembedParagraph ? trimTrailingMedia(stripTags(oembedParagraph)) : "";
+  const text = (longForm && trimTrailingMedia(longForm)) || syndicationText || oembedText;
+
+  // Tarih: syndication kesin zaman damgası verir, oEmbed yalnızca gün.
+  const date = syndication?.created_at
+    ? new Date(syndication.created_at).toISOString().slice(0, 10)
+    : oembed?.html
+      ? extractDateFromOEmbed(oembed.html)
+      : null;
+
+  const images: PostImage[] = (syndication?.photos ?? []).flatMap((photo) => {
+    if (!photo.url) return [];
+    try {
+      const url = new URL(photo.url);
+      if (url.hostname !== "pbs.twimg.com") return [];
+      // `large` 2048 pikselle sınırlı; `orig` 10 MB yükleme sınırını aşabiliyor.
+      url.searchParams.set("format", "jpg");
+      url.searchParams.set("name", "large");
+      return [{ url: url.toString(), width: photo.width ?? 0, height: photo.height ?? 0 }];
+    } catch {
+      return [];
+    }
+  });
 
   const warnings: string[] = [];
-  if (!text) warnings.push("Gönderi metni okunamadı; özeti elle yazın.");
+  if (!text) warnings.push("Gönderi metni okunamadı; metni elle yazın.");
   if (!date) {
     warnings.push("Gönderi tarihi okunamadı; tarihi elle girin (tarihsiz kayıt yayımlanamaz).");
   }
-  if (!imageUrl) {
-    warnings.push("Gönderide kapak olarak kullanılabilecek bir görsel yok; kapağı elle yükleyebilirsiniz.");
+  if (images.length === 0) {
+    warnings.push("Gönderide fotoğraf yok; kapağı elle yükleyebilirsiniz.");
+  }
+  if (!syndication && oembedText) {
+    warnings.push("Fotoğraflar alınamadı, yalnızca metin okunabildi. Bir süre sonra tekrar deneyin.");
   }
 
   return {
     ok: true,
     post: {
       platform: analysis.platform,
-      canonicalUrl: analysis.canonicalUrl,
-      postId: analysis.postId,
-      authorName: (payload.author_name ?? "").trim(),
-      authorHandle: payload.author_url?.split("/").filter(Boolean).pop() ?? analysis.authorHandle ?? "",
+      canonicalUrl,
+      postId,
+      authorName: (syndication?.user?.name ?? oembed?.author_name ?? "").trim(),
+      authorHandle:
+        syndication?.user?.screen_name ??
+        oembed?.author_url?.split("/").filter(Boolean).pop() ??
+        analysis.authorHandle ??
+        "",
       text,
       date,
-      imageUrl,
+      images,
       warnings,
     },
   };

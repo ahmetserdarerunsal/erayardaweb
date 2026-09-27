@@ -17,6 +17,7 @@ import {
   createActivityFromPost,
   createBlankActivity,
   deleteActivity,
+  refreshActivityFromPost,
   removeActivitySource,
   setActivityCover,
   setActivityPublication,
@@ -518,6 +519,18 @@ export function ActivityManager({
                         onClick={() => setEditing(activity.id)}
                       >
                         Düzenle
+                      </button>
+                    ) : null}
+
+                    {activitySources.some((item) => item.publisher === "X") ? (
+                      <button
+                        className="admin-btn admin-btn--ghost"
+                        type="button"
+                        disabled={pending}
+                        title="Metni ve fotoğrafları X gönderisinden yeniden alır. Başlık, kategori ve konum değişmez."
+                        onClick={() => run(() => refreshActivityFromPost(activity.id))}
+                      >
+                        Gönderiden güncelle
                       </button>
                     ) : null}
 
