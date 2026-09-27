@@ -14,7 +14,7 @@ yazılmayı bekliyor.
 | React | 19.2.8 |
 | Stil | Elle yazılmış CSS (`src/app/globals.css`), Tailwind v4 kurulu ama kullanılmıyor |
 | Veritabanı / Auth / Depolama | Supabase (proje: `erayardaweb`, bölge Frankfurt) |
-| Hosting hedefi | Vercel (yapılandırma `next.config.ts` içinde, henüz deploy edilmedi) |
+| Hosting | Vercel — **canlı**: https://erayardaweb.vercel.app |
 | Dil | Arayüzün tamamı Türkçe |
 
 Bağımlılıklar kasıtlı olarak az: `@supabase/supabase-js`, `@supabase/ssr`,
@@ -258,14 +258,25 @@ Yayın öncesi kapatılanlar:
 
 Açık kalanlar:
 
-- ⚠️ **`NEXT_PUBLIC_SITE_URL` hâlâ `http://localhost:3000`.** Sitemap,
-  robots, canonical ve OG adresleri bundan üretiliyor ve değer **build
-  sırasında** okunuyor. Gerçek alan adı Vercel ortam değişkenlerine
-  girilmeden yayına çıkılmamalı.
-- Faaliyetlerin hiçbirinde fotoğraf yok; 6 yayımlanmış kaydın hiçbirinde
-  Arda'nın katılımını doğrulayan bağımsız kaynak bulunamadı (kayıtların
-  `missingInfo` alanında yazılı)
-- `scripts/verify-ui.mjs` yalnızca ana sayfayı test ediyor, kapsamı dar
+- ⚠️ **Alan adı bağlanmadı.** Site şu an `erayardaweb.vercel.app`
+  üzerinde. Gerçek alan adı eklenince `NEXT_PUBLIC_SITE_URL` de
+  güncellenmeli ve **yeniden deploy** edilmeli — bu değer build
+  sırasında koda gömülüyor, sitemap/robots/canonical ondan üretiliyor.
+- ⚠️ **GitHub bağlantısı yok.** Vercel hesabına GitHub Login Connection
+  eklenmediği için `vercel git connect` 400 dönüyor. Bağlanana kadar
+  dağıtım elle: `npx vercel --prod`.
+
+## Dağıtım
+
+Proje: `serdarerunsal071-7983/erayardaweb`. Ortam değişkenlerinin beşi de
+Production ve Preview için tanımlı (`npx vercel env ls`).
+
+```
+npx vercel --prod      # elle dağıtım
+npx vercel env ls      # değişkenleri listele
+```
+
+GitHub bağlandıktan sonra master'a her push otomatik dağıtılır.
 
 ## 11. Güvenlik notu
 
