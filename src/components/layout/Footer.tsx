@@ -1,18 +1,34 @@
 import Link from "next/link";
 import { Container } from "@/components/ui/Container";
-import { navigation, profile } from "@/data/profile";
-import { socialLinks } from "@/data/social";
+import { navigation } from "@/lib/site-constants";
 
-export function Footer() {
+const footerNavigation = navigation;
+
+export function Footer({ name, title }: { name: string; title: string }) {
   return (
     <footer className="site-footer">
       <Container>
-        <div className="site-footer__top">
-          <div><p className="site-footer__name">EKREM ERAY<br />ARDA</p><p className="site-footer__title">{profile.title}</p></div>
-          <nav aria-label="Alt navigasyon" className="footer-nav">{navigation.map((item) => <Link key={item.href} href={item.href} prefetch={item.href === "/" ? undefined : false}>{item.label}</Link>)}</nav>
-          <div className="footer-social">{socialLinks.map((item) => <a key={item.label} href={item.href} target="_blank" rel="noreferrer">{item.label}</a>)}</div>
+        <div className="site-footer__main">
+          <div className="site-footer__identity">
+            <Link className="site-footer__brand" href="/">
+              {name}
+            </Link>
+            <p className="site-footer__title">{title}</p>
+          </div>
+
+          <nav aria-label="Alt navigasyon" className="footer-nav">
+            {footerNavigation.map((item) => (
+              <Link key={item.href} href={item.href}>
+                {item.label}
+              </Link>
+            ))}
+          </nav>
         </div>
-        <div className="site-footer__bottom"><span>© {new Date().getFullYear()} {profile.name}</span><span>İçerikler güncellenecektir.</span></div>
+
+        <div className="site-footer__bottom">
+          <span>© {new Date().getFullYear()} {name.toUpperCase()}. Tüm hakları saklıdır.</span>
+          <span>Kartal · İstanbul</span>
+        </div>
       </Container>
     </footer>
   );

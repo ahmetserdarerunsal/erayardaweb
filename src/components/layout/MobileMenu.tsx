@@ -1,51 +1,111 @@
 "use client";
-import Link from "next/link";
-import { useEffect, useRef } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { navigation, profile } from "@/data/profile";
 
-export function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const reduce = useReducedMotion();
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { navigation } from "@/lib/site-constants";
+
+export function MobileMenu({ name, title }: { name: string; title: string }) {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const priorOverflow = document.body.style.overflow;
+
+    const previousOverflow = document.body.style.overflow;
+    const openButton = openButtonRef.current;
     document.body.style.overflow = "hidden";
-    closeRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+    closeButtonRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+
       if (event.key !== "Tab") return;
       const panel = document.getElementById("mobile-menu-panel");
-      const focusable = panel?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])');
+      const focusable = panel?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled])',
+      );
+
       if (!focusable?.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      openButton?.focus();
     };
-    document.addEventListener("keydown", onKeyDown);
-    return () => { document.body.style.overflow = priorOverflow; document.removeEventListener("keydown", onKeyDown); };
-  }, [open, onClose]);
+  }, [open]);
 
   return (
-    <AnimatePresence>
-      {open && (
-        <motion.div id="mobile-menu-panel" className="mobile-menu" role="dialog" aria-modal="true" aria-label="Ana menü" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+    <div className="mobile-navigation">
+      <button
+        ref={openButtonRef}
+        type="button"
+        className="menu-toggle"
+        aria-expanded={open}
+        aria-controls="mobile-menu-panel"
+        onClick={() => setOpen(true)}
+      >
+        <span>Menü</span>
+        <i aria-hidden="true" />
+      </button>
+
+      {open ? (
+        <div
+          id="mobile-menu-panel"
+          className="mobile-menu"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Ana menü"
+        >
           <div className="mobile-menu__top">
-            <Link href="/" className="mobile-menu__brand" onClick={onClose}>{profile.name}</Link>
-            <button ref={closeRef} type="button" className="menu-button" onClick={onClose} aria-label="Menüyü kapat"><span aria-hidden="true">KAPAT</span></button>
+            <Link href="/" className="mobile-menu__brand" onClick={() => setOpen(false)}>
+              {name}
+            </Link>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              className="menu-close"
+              onClick={() => setOpen(false)}
+              aria-label="Menüyü kapat"
+            >
+              Kapat
+            </button>
           </div>
+
           <nav aria-label="Mobil ana navigasyon" className="mobile-menu__nav">
             {navigation.map((item, index) => (
-              <motion.div key={item.href} initial={reduce ? false : { opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduce ? 0 : 0.08 + index * 0.045 }}>
-                <Link href={item.href} prefetch={item.href === "/" ? undefined : false} onClick={onClose}><span aria-hidden="true">0{index + 1}</span>{item.label}</Link>
-              </motion.div>
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={pathname === item.href ? "page" : undefined}
+                onClick={() => setOpen(false)}
+              >
+                <span aria-hidden="true">0{index + 1}</span>
+                {item.label}
+              </Link>
             ))}
           </nav>
-          <p className="mobile-menu__foot">{profile.title}</p>
-        </motion.div>
-      )}
-    </AnimatePresence>
+
+          <p className="mobile-menu__foot">{title}</p>
+        </div>
+      ) : null}
+    </div>
   );
 }

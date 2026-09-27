@@ -20,6 +20,9 @@
 # production
 /build
 
+# local visual verification output
+/artifacts
+
 # misc
 .DS_Store
 *.pem
@@ -32,6 +35,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# Şablon gizli değer içermez, depoda dursun.
+!.env.example
 
 # vercel
 .vercel
