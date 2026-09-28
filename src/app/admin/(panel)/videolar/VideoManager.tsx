@@ -14,6 +14,7 @@ import type { ActionResult } from "../fotograflar/actions";
 import {
   clearVideoCustomThumbnail,
   createVideo,
+  deleteVideo,
   refreshVideoThumbnail,
   setVideoCustomThumbnail,
   setVideoPublication,
@@ -61,10 +62,12 @@ export function VideoManager({
   videos,
   media,
   canPublish,
+  canDelete,
 }: {
   videos: Video[];
   media: Media[];
   canPublish: boolean;
+  canDelete: boolean;
 }) {
   const [url, setUrl] = useState("");
   const [feedback, setFeedback] = useState<ActionResult | null>(null);
@@ -334,6 +337,21 @@ export function VideoManager({
                         }
                       >
                         {video.status === "published" ? "Taslağa al" : "Yayımla"}
+                      </button>
+                    ) : null}
+
+                    {canDelete && video.status !== "published" ? (
+                      <button
+                        className="admin-btn admin-btn--danger"
+                        type="button"
+                        disabled={pending}
+                        onClick={() => {
+                          // Silme geri alınamaz; onay isteniyor.
+                          if (!window.confirm(`"${video.title}" silinsin mi?`)) return;
+                          run(() => deleteVideo(video.id));
+                        }}
+                      >
+                        Sil
                       </button>
                     ) : null}
                   </div>

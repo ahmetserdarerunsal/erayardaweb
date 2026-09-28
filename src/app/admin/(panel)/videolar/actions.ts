@@ -2,8 +2,9 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { writeAudit } from "@/lib/admin/audit";
-import { requireAdminSession, requirePublisher } from "@/lib/admin/session";
+import { requireAdminSession, requirePublisher, requireYonetici } from "@/lib/admin/session";
 import { CONTENT_TAGS } from "@/lib/public-content";
+import { MEDIA_BUCKET } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { analyzeVideoUrl, resolveBestYoutubeThumbnail } from "@/lib/video-providers";
 import type { ActionResult } from "../fotograflar/actions";
@@ -199,4 +200,72 @@ export async function clearVideoCustomThumbnail(videoId: string): Promise<Action
   if (error) return { ok: false, message: error.message };
   refreshVideos();
   return { ok: true, message: "Kapak kaldırıldı, platform görseli kullanılacak." };
+}
+
+/**
+ * Videoyu siler. Şemadaki politika gereği yalnızca yönetici.
+ *
+ * Yayındaki video doğrudan silinmez: tek tıkla canlı sayfadan içerik
+ * kaldırmak, önce taslağa alıp sonra silmekten daha kolay olmamalı.
+ *
+ * Yöneticinin yüklediği kapak başka yerde kullanılmıyorsa depodan da
+ * kaldırılır; platformdan gelen kapak zaten bizde tutulmuyor.
+ */
+export async function deleteVideo(videoId: string): Promise<ActionResult> {
+  const session = await requireYonetici();
+  const supabase = await createSupabaseServerClient();
+
+  const { data: video } = await supabase
+    .from("videos")
+    .select("title, status, custom_thumbnail_media_id")
+    .eq("id", videoId)
+    .maybeSingle();
+
+  if (!video) return { ok: false, message: "Video bulunamadı." };
+  if (video.status === "published") {
+    return { ok: false, message: "Yayındaki video silinemez. Önce taslağa alın." };
+  }
+
+  const { error } = await supabase.from("videos").delete().eq("id", videoId);
+  if (error) return { ok: false, message: error.message };
+
+  let kapakSilindi = false;
+  if (video.custom_thumbnail_media_id) {
+    const mediaId = video.custom_thumbnail_media_id;
+    const [foto, galeri, kapak, baskaVideo] = await Promise.all([
+      supabase.from("photos").select("id", { count: "exact", head: true }).eq("media_id", mediaId),
+      supabase.from("activity_gallery").select("media_id", { count: "exact", head: true }).eq("media_id", mediaId),
+      supabase.from("activities").select("id", { count: "exact", head: true }).eq("cover_media_id", mediaId),
+      supabase.from("videos").select("id", { count: "exact", head: true }).eq("custom_thumbnail_media_id", mediaId),
+    ]);
+
+    const kalan =
+      (foto.count ?? 0) + (galeri.count ?? 0) + (kapak.count ?? 0) + (baskaVideo.count ?? 0);
+
+    if (kalan === 0) {
+      const { data: media } = await supabase
+        .from("media_library")
+        .select("storage_path")
+        .eq("id", mediaId)
+        .maybeSingle();
+      if (media) {
+        await supabase.storage.from(MEDIA_BUCKET).remove([media.storage_path]);
+        await supabase.from("media_library").delete().eq("id", mediaId);
+        kapakSilindi = true;
+      }
+    }
+  }
+
+  await writeAudit(session, {
+    action: "sildi",
+    entityType: "video",
+    entityId: videoId,
+    changes: { başlık: video.title, kapakDaSilindi: kapakSilindi },
+  });
+
+  refreshVideos();
+  return {
+    ok: true,
+    message: kapakSilindi ? "Video ve yüklenen kapağı silindi." : "Video silindi.",
+  };
 }

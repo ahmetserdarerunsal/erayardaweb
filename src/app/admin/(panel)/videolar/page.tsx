@@ -24,6 +24,7 @@ export default async function AdminVideosPage() {
       videos={videosResult.data ?? []}
       media={mediaResult.data ?? []}
       canPublish={session.canPublish}
+      canDelete={session.role === "yonetici"}
     />
   );
 }

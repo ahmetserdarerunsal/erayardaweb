@@ -462,6 +462,10 @@
 .admin-photo-grid button[data-cover="true"] { background: var(--a-navy); color: #fff; }
 /* Silme, yanındaki sıralama düğmelerinden ayrışsın. */
 .admin-photo-grid__delete { margin-left: auto; color: var(--a-danger); }
+/* Geri alınamayan eylem: yanındaki düğmelerden ayrışsın. */
+.admin-btn--danger { border-color: var(--a-danger); background: transparent; color: var(--a-danger); }
+.admin-btn--danger:hover:not(:disabled) { background: var(--a-danger); color: #fff; }
+
 .admin-photo-grid__delete:hover:not(:disabled) { border-color: var(--a-danger); background: #fbecea; }
 
 
