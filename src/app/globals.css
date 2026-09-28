@@ -351,9 +351,10 @@ button {
 .mobile-menu__nav a {
   display: grid;
   grid-template-columns: 2.7rem 1fr;
-  align-items: baseline;
+  /* Taban çizgisine hizalanınca küçük numara satırın altına düşüyor ve
+     bir alttaki maddeye aitmiş gibi duruyordu. */
+  align-items: center;
   padding: 0.38rem 0;
-  border-bottom: 1px solid transparent;
   font-size: clamp(1.55rem, 6.5vw, 4.2rem);
   font-weight: 700;
   letter-spacing: -0.045em;
@@ -361,10 +362,11 @@ button {
   text-transform: uppercase;
 }
 
-.mobile-menu__nav a:hover,
-.mobile-menu__nav a:focus-visible,
-.mobile-menu__nav a[aria-current="page"] {
-  border-color: var(--line-light);
+/* Açık olan sayfa, satırın altına çekilen tam genişlikte bir çizgiyle
+   gösteriliyordu; menüde rastgele bir ayraç gibi duruyordu. Artık yalnızca
+   numara aydınlanıyor. */
+.mobile-menu__nav a[aria-current="page"] span {
+  color: var(--ivory);
 }
 
 .mobile-menu__nav a span {
@@ -1350,7 +1352,11 @@ button {
   }
 
   .activities-intro__links a {
-    grid-template-columns: 2.5rem 1fr auto;
+    /* Masaüstündeki boş ilk sütun mobilde kaldırılıyor. Eskiden sütun
+       şablonu 3 sütunlu kalıp başlık 2.5rem'lik ilk sütuna düşüyor, ok da
+       geniş sütuna geçip başlığın üstüne biniyordu. */
+    grid-template-columns: 1fr auto;
+    gap: 0.75rem;
     min-height: 7.5rem;
   }
 
