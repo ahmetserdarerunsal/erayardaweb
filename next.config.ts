@@ -52,6 +52,24 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // Aynı içerik üç adresten birden yayınlanmasın: www ve Vercel'in
+      // verdiği alt alan adı asıl adrese kalıcı olarak yönlendiriliyor.
+      // Kanonik etiket zaten asıl adresi gösteriyor ama arama motoruna
+      // tek bir adres bırakmak daha temiz. Dağıtıma özel adresler
+      // (erayardaweb-<hash>.vercel.app) farklı konak adı taşıdığı için
+      // etkilenmez, önizleme yapılabilir kalır.
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.ekremerayarda.com.tr" }],
+        destination: "https://ekremerayarda.com.tr/:path*",
+        permanent: true,
+      },
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "erayardaweb.vercel.app" }],
+        destination: "https://ekremerayarda.com.tr/:path*",
+        permanent: true,
+      },
       // Eski istemciler /favicon.ico adresini doğrudan ister; ikon PNG
       // olduğu için 404 yerine oraya yönlendiriliyor.
       { source: "/favicon.ico", destination: "/icon.png", permanent: true },
