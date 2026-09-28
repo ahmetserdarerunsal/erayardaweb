@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
         : []),
       { protocol: "https", hostname: "i.ytimg.com" },
       { protocol: "https", hostname: "i.vimeocdn.com" },
+      // X video kapakları. Platform kapakları uzak adresten gösterilir;
+      // gönderi silinirse kapak da kaybolur, o durumda panelden kapak
+      // yüklenir. Paylaşımlardaki fotoğraflar ise depoya indiriliyor.
+      { protocol: "https", hostname: "pbs.twimg.com" },
     ],
   },
   /**

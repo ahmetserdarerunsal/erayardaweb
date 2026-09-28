@@ -136,11 +136,18 @@ const LINK_PREVIEW_UA = "ErayArdaSite/1.0 (+link-preview)";
 export type PostImage = { url: string; width: number; height: number };
 
 type SyndicationPhoto = { url?: string; width?: number; height?: number };
+type SyndicationMedia = {
+  type?: string;
+  media_url_https?: string;
+  original_info?: { width?: number; height?: number };
+};
 type SyndicationResponse = {
   text?: string;
   display_text_range?: [number, number];
   created_at?: string;
   photos?: SyndicationPhoto[];
+  /** Video ve GIF'lerin kapak görseli burada; `photos` onlarda boş kalıyor. */
+  mediaDetails?: SyndicationMedia[];
   user?: { name?: string; screen_name?: string };
 };
 
@@ -271,6 +278,11 @@ export type FetchedSocialPost = {
   date: string | null;
   /** Gönderinin bütün fotoğrafları, paylaşıldıkları sırayla. */
   images: PostImage[];
+  /**
+   * Videolu gönderilerde kapak karesi. Video gönderilerinde `photos` boş
+   * geldiği için fotoğraflardan ayrı tutuluyor.
+   */
+  videoPoster: PostImage | null;
   /** Yöneticiye gösterilecek eksikler. */
   warnings: string[];
 };
@@ -334,13 +346,24 @@ export async function fetchSocialPost(
     }
   });
 
+  const videoMedia = (syndication?.mediaDetails ?? []).find(
+    (item) => item.type === "video" || item.type === "animated_gif",
+  );
+  const videoPoster: PostImage | null = videoMedia?.media_url_https
+    ? {
+        url: videoMedia.media_url_https,
+        width: videoMedia.original_info?.width ?? 0,
+        height: videoMedia.original_info?.height ?? 0,
+      }
+    : null;
+
   const warnings: string[] = [];
   if (!text) warnings.push("Gönderi metni okunamadı; metni elle yazın.");
   if (!date) {
     warnings.push("Gönderi tarihi okunamadı; tarihi elle girin (tarihsiz kayıt yayımlanamaz).");
   }
-  if (images.length === 0) {
-    warnings.push("Gönderide fotoğraf yok; kapağı elle yükleyebilirsiniz.");
+  if (images.length === 0 && !videoPoster) {
+    warnings.push("Gönderide görsel yok; kapağı elle yükleyebilirsiniz.");
   }
   if (!syndication && oembedText) {
     warnings.push("Fotoğraflar alınamadı, yalnızca metin okunabildi. Bir süre sonra tekrar deneyin.");
@@ -361,6 +384,7 @@ export async function fetchSocialPost(
       text,
       date,
       images,
+      videoPoster,
       warnings,
     },
   };

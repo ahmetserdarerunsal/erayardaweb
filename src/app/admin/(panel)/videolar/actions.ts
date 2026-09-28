@@ -6,6 +6,7 @@ import { requireAdminSession, requirePublisher, requireYonetici } from "@/lib/ad
 import { CONTENT_TAGS } from "@/lib/public-content";
 import { MEDIA_BUCKET } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchSocialPost } from "@/lib/social-posts";
 import { analyzeVideoUrl, resolveBestYoutubeThumbnail } from "@/lib/video-providers";
 import type { ActionResult } from "../fotograflar/actions";
 
@@ -16,6 +17,37 @@ function slugify(value: string) {
 function refreshVideos() {
   updateTag(CONTENT_TAGS.videos);
   revalidatePath("/videolar");
+}
+
+/** Metnin ilk cümlesini başlık yapar; X gönderilerinin başlığı yoktur. */
+function titleFromText(text: string): string {
+  const firstLine =
+    text
+      .split("\n")
+      .map((line) => line.trim())
+      .find(Boolean) ?? "";
+  const sentence = firstLine.split(/(?<=[.!?…])\s/)[0] ?? firstLine;
+  if (sentence.length <= 180) return sentence;
+  const cut = sentence.slice(0, 180);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > 120 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
+}
+
+/**
+ * X'in oEmbed'i başlık alanı vermiyor, thumbnail hiç vermiyor. Bu yüzden X
+ * gönderileri paylaşım modülüyle aynı okuyucudan geçiriliyor: başlık gönderi
+ * metninden türetilir, kapak da videonun poster karesinden gelir.
+ */
+async function getXVideo(url: string) {
+  const result = await fetchSocialPost(url);
+  if (!result.ok) return null;
+  const post = result.post;
+  const title = titleFromText(post.text);
+  if (!title) return null;
+  return {
+    title,
+    thumbnail_url: post.videoPoster?.url ?? post.images[0]?.url ?? undefined,
+  };
 }
 
 async function getOEmbed(provider: string, url: string) {
@@ -54,7 +86,10 @@ export async function createVideo(input: { url: string; title: string; descripti
   const session = await requireAdminSession();
   const analysis = analyzeVideoUrl(input.url);
   if (!analysis.supported || !analysis.provider || !analysis.originalUrl) return { ok: false, message: analysis.message ?? "Video bağlantısı desteklenmiyor." };
-  const metadata = await getOEmbed(analysis.provider, analysis.originalUrl);
+  const metadata =
+    analysis.provider === "x"
+      ? await getXVideo(analysis.originalUrl)
+      : await getOEmbed(analysis.provider, analysis.originalUrl);
   const title = input.title.trim() || metadata?.title?.trim() || "";
   if (title.length < 2 || title.length > 180) return { ok: false, message: "Başlık 2–180 karakter olmalı. Platform başlığı alınamadıysa başlığı elle girin." };
   const supabase = await createSupabaseServerClient();
