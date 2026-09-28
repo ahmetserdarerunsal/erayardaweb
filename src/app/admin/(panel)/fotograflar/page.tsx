@@ -22,6 +22,7 @@ export default async function AdminPhotosPage() {
       photos={photos.data ?? []}
       media={media.data ?? []}
       canPublish={session.canPublish}
+      canDelete={session.role === "yonetici"}
     />
   );
 }

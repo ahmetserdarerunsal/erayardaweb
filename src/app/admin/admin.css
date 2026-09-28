@@ -460,6 +460,10 @@
 .admin-photo-grid button { padding: 0.3rem; border: 1px solid var(--a-line); background: #fff; cursor: pointer; font: inherit; font-size: 0.65rem; }
 .admin-photo-grid button:last-child { margin-left: auto; }
 .admin-photo-grid button[data-cover="true"] { background: var(--a-navy); color: #fff; }
+/* Silme, yanındaki sıralama düğmelerinden ayrışsın. */
+.admin-photo-grid__delete { margin-left: auto; color: var(--a-danger); }
+.admin-photo-grid__delete:hover:not(:disabled) { border-color: var(--a-danger); background: #fbecea; }
+
 
 .admin-record-list,
 .admin-message-list { display: grid; gap: 0.75rem; }

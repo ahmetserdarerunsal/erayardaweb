@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
-import { requireAdminSession, requirePublisher } from "@/lib/admin/session";
+import { writeAudit } from "@/lib/admin/audit";
+import { requireAdminSession, requirePublisher, requireYonetici } from "@/lib/admin/session";
 import { CONTENT_TAGS } from "@/lib/public-content";
+import { MEDIA_BUCKET } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ActionResult = { ok: boolean; message: string };
@@ -113,4 +115,108 @@ export async function setAlbumPublication(albumId: string, publish: boolean): Pr
   if (error) return { ok: false, message: error.message };
   refreshPhotos();
   return { ok: true, message: publish ? "Albüm yayımlandı." : "Albüm taslağa alındı." };
+}
+
+/**
+ * Albümden bir fotoğrafı kaldırır.
+ *
+ * Kayıt silinince `photo_albums.cover_photo_id` şema gereği null olur, yani
+ * kapak seçiliyse kapak seçimi düşer ve ilk fotoğrafa geri dönülür.
+ *
+ * Altındaki dosya başka hiçbir yerde kullanılmıyorsa depodan da silinir;
+ * aksi hâlde kütüphanede sahipsiz dosya birikir. Depodan silme yalnızca
+ * yöneticiye açık olduğundan, editör sildiğinde dosya kütüphanede kalır ve
+ * "kullanılmayan" olarak görünür.
+ */
+export async function deletePhoto(photoId: string): Promise<ActionResult> {
+  const session = await requireAdminSession();
+  const supabase = await createSupabaseServerClient();
+
+  const { data: photo } = await supabase
+    .from("photos")
+    .select("id, media_id")
+    .eq("id", photoId)
+    .maybeSingle();
+
+  if (!photo) return { ok: false, message: "Fotoğraf bulunamadı." };
+
+  const { error } = await supabase.from("photos").delete().eq("id", photoId);
+  if (error) return { ok: false, message: error.message };
+
+  let dosyaSilindi = false;
+  if (session.role === "yonetici") {
+    const [baskaFoto, galeri, kapak, videoKapak] = await Promise.all([
+      supabase.from("photos").select("id", { count: "exact", head: true }).eq("media_id", photo.media_id),
+      supabase.from("activity_gallery").select("media_id", { count: "exact", head: true }).eq("media_id", photo.media_id),
+      supabase.from("activities").select("id", { count: "exact", head: true }).eq("cover_media_id", photo.media_id),
+      supabase.from("videos").select("id", { count: "exact", head: true }).eq("custom_thumbnail_media_id", photo.media_id),
+    ]);
+
+    const kalanKullanim =
+      (baskaFoto.count ?? 0) + (galeri.count ?? 0) + (kapak.count ?? 0) + (videoKapak.count ?? 0);
+
+    if (kalanKullanim === 0) {
+      const { data: media } = await supabase
+        .from("media_library")
+        .select("storage_path")
+        .eq("id", photo.media_id)
+        .maybeSingle();
+
+      if (media) {
+        await supabase.storage.from(MEDIA_BUCKET).remove([media.storage_path]);
+        await supabase.from("media_library").delete().eq("id", photo.media_id);
+        dosyaSilindi = true;
+      }
+    }
+  }
+
+  await writeAudit(session, {
+    action: "sildi",
+    entityType: "fotoğraf",
+    entityId: photoId,
+    changes: { dosyaDaSilindi: dosyaSilindi },
+  });
+
+  refreshPhotos();
+  return {
+    ok: true,
+    message: dosyaSilindi
+      ? "Fotoğraf silindi, dosya depodan da kaldırıldı."
+      : "Fotoğraf albümden kaldırıldı. Dosya Medya Kütüphanesi'nde duruyor.",
+  };
+}
+
+/** Albümü ve içindeki fotoğraf kayıtlarını siler. Yalnızca yönetici. */
+export async function deleteAlbum(albumId: string): Promise<ActionResult> {
+  const session = await requireYonetici();
+  const supabase = await createSupabaseServerClient();
+
+  const { data: album } = await supabase
+    .from("photo_albums")
+    .select("title, status")
+    .eq("id", albumId)
+    .maybeSingle();
+
+  if (!album) return { ok: false, message: "Albüm bulunamadı." };
+  if (album.status === "published") {
+    return { ok: false, message: "Yayındaki albüm silinemez. Önce taslağa alın." };
+  }
+
+  // `photos` kayıtları cascade ile gider; dosyalar Medya Kütüphanesi'nde
+  // "kullanılmayan" olarak kalır ve oradan toplu temizlenebilir.
+  const { error } = await supabase.from("photo_albums").delete().eq("id", albumId);
+  if (error) return { ok: false, message: error.message };
+
+  await writeAudit(session, {
+    action: "sildi",
+    entityType: "albüm",
+    entityId: albumId,
+    changes: { başlık: album.title },
+  });
+
+  refreshPhotos();
+  return {
+    ok: true,
+    message: "Albüm silindi. Fotoğraf dosyaları Medya Kütüphanesi'nde kaldı.",
+  };
 }
