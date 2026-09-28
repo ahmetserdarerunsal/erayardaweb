@@ -754,13 +754,23 @@ button {
   }
 
   .about-page__image {
+    /* Özne sağ üçte birde, üstten hizalı.
+
+       Fotoğrafta baş zaten karenin en üstüne yakın; 84px'lik sabit başlık
+       onun üzerine biniyordu. object-position ile çözülmüyor: taşan bir
+       görselde yüzdeyi artırmak içeriği AŞAĞI değil YUKARI kaydırır,
+       uzunluk vermek ise taşmanın sıfır olduğu dar pencerelerde üstte
+       boşluk bırakır.
+
+       Onun yerine görselin kutusu yukarıdan kısaltılıyor. Kutu her zaman
+       tam doluyor, üstte kalan şerit hero'nun koyu zemini — saydam
+       başlığın altında ayırt edilmiyor. */
+    --about-ust-bosluk: clamp(0px, 3.2vw, 64px);
     position: absolute;
-    inset: 0;
+    inset: var(--about-ust-bosluk) 0 0 0;
     width: 100%;
     max-width: none;
-    height: 100%;
     object-fit: cover;
-    /* Özne sağ üçte birde; üstten hizalamak başın kesilmesini önler. */
     object-position: 72% 0%;
   }
 }
