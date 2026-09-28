@@ -94,7 +94,7 @@ export function ContactForm({ enabled }: { enabled: boolean }) {
         <textarea
           id="mesaj"
           name="mesaj"
-          rows={6}
+          rows={4}
           maxLength={2000}
           required
           disabled={!enabled}
