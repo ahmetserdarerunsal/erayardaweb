@@ -166,14 +166,29 @@ async function fetchSyndication(postId: string): Promise<SyndicationResponse | n
   }
 }
 
+function unescapeJs(value: string): string {
+  return value
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "\t")
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, "\\");
+}
+
 /**
  * Uzun gönderilerin ("daha fazla göster") tam metni.
  *
  * Ne oEmbed ne de syndication bunu veriyor; ikisi de ~280 karakterde kesiyor.
  * Metin yalnızca gönderi sayfasının sunucu tarafı yükünde, `note_tweet_results`
  * bloğunun içinde bulunuyor. Blok yoksa gönderi zaten kısa demektir.
+ *
+ * DİKKAT: blokta birden fazla `text:` alanı var. Gönderide hashtag varsa
+ * `entity_set.hashtags[].text` metinden ÖNCE geliyor; ilk eşleşmeyi almak
+ * gönderi metni yerine hashtag'i döndürüyordu. Bu yüzden bütün adaylar
+ * toplanıp, syndication'dan bilinen başlangıçla eşleşen en uzunu seçilir.
+ * Doğrulanamayan aday kullanılmaz — yanlış metin, eksik metinden kötüdür.
  */
-async function fetchLongFormText(pageUrl: string): Promise<string | null> {
+async function fetchLongFormText(pageUrl: string, knownStart: string): Promise<string | null> {
   try {
     const response = await fetch(pageUrl, {
       headers: { "user-agent": LINK_PREVIEW_UA, accept: "text/html" },
@@ -186,18 +201,18 @@ async function fetchLongFormText(pageUrl: string): Promise<string | null> {
     const start = html.indexOf("note_tweet_results");
     if (start < 0) return null;
 
-    const block = html.slice(start, start + 8000);
-    const match = block.match(/text:"((?:[^"\\]|\\.)*)"/);
-    if (!match) return null;
+    const block = html.slice(start, start + 20000);
+    const adaylar = [...block.matchAll(/text:"((?:[^"\\]|\\.)*)"/g)]
+      .map((m) => unescapeJs(m[1]).trim())
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length);
 
-    const text = match[1]
-      .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
-      .replace(/\\n/g, "\n")
-      .replace(/\\t/g, "\t")
-      .replace(/\\"/g, '"')
-      .replace(/\\\\/g, "\\");
+    if (adaylar.length === 0) return null;
 
-    return text.trim() || null;
+    const onek = knownStart.trim().slice(0, 40);
+    if (!onek) return adaylar[0];
+
+    return adaylar.find((aday) => aday.startsWith(onek)) ?? null;
   } catch {
     return null;
   }
@@ -270,10 +285,9 @@ export async function fetchSocialPost(
 
   const { canonicalUrl, postId } = analysis;
 
-  // Üçü paralel: biri yanıt vermezse diğerleri yine de sonuç üretir.
-  const [syndication, longForm, oembed] = await Promise.all([
+  // İkisi paralel: biri yanıt vermezse diğeri yine de sonuç üretir.
+  const [syndication, oembed] = await Promise.all([
     fetchSyndication(postId),
-    fetchLongFormText(canonicalUrl),
     fetchOEmbed(canonicalUrl),
   ]);
 
@@ -291,7 +305,13 @@ export async function fetchSocialPost(
     : "";
   const oembedParagraph = oembed?.html?.match(/<p[^>]*>([\s\S]*?)<\/p>/i)?.[1];
   const oembedText = oembedParagraph ? trimTrailingMedia(stripTags(oembedParagraph)) : "";
-  const text = (longForm && trimTrailingMedia(longForm)) || syndicationText || oembedText;
+
+  // Uzun metni ancak kısa sürümü bildikten sonra isteyebiliyoruz: doğru
+  // alanı seçmek için bilinen başlangıca ihtiyaç var.
+  const kisaMetin = syndicationText || oembedText;
+  const longForm = kisaMetin ? await fetchLongFormText(canonicalUrl, kisaMetin) : null;
+
+  const text = (longForm && trimTrailingMedia(longForm)) || kisaMetin;
 
   // Tarih: syndication kesin zaman damgası verir, oEmbed yalnızca gün.
   const date = syndication?.created_at
