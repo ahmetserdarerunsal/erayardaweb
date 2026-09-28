@@ -220,3 +220,40 @@ export async function deleteAlbum(albumId: string): Promise<ActionResult> {
     message: "Albüm silindi. Fotoğraf dosyaları Medya Kütüphanesi'nde kaldı.",
   };
 }
+
+/**
+ * Albümün adını ve açıklamasını değiştirir.
+ *
+ * `slug` bilerek sabit kalır: albümün genel sitede kendi adresi yok, ama
+ * slug değişirse aynı albüm iki ayrı kayıt gibi görünebilir ve varsa dış
+ * bağlantılar kırılır. Görünen ad ile adres ayrı tutuluyor.
+ */
+export async function updateAlbum(
+  albumId: string,
+  input: { title: string; description: string },
+): Promise<ActionResult> {
+  const session = await requireAdminSession();
+
+  const title = input.title.trim();
+  if (title.length < 2 || title.length > 120) {
+    return { ok: false, message: "Albüm adı 2–120 karakter olmalı." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("photo_albums")
+    .update({ title, description: input.description.trim().slice(0, 600) || null })
+    .eq("id", albumId);
+
+  if (error) return { ok: false, message: error.message };
+
+  await writeAudit(session, {
+    action: "adını değiştirdi",
+    entityType: "albüm",
+    entityId: albumId,
+    changes: { başlık: title },
+  });
+
+  refreshPhotos();
+  return { ok: true, message: "Albüm bilgileri güncellendi." };
+}
