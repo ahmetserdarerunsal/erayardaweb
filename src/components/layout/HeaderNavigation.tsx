@@ -5,12 +5,9 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { navigation } from "@/lib/site-constants";
 
-const overlayRoutes = new Set(["/", "/ekrem-eray-arda"]);
-
 export function HeaderNavigation() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
-  const usesOverlay = overlayRoutes.has(pathname);
 
   useEffect(() => {
     const updateHeader = () => setScrolled(window.scrollY > 24);
@@ -22,12 +19,10 @@ export function HeaderNavigation() {
 
   return (
     <>
-      <span
-        className="header-route-state"
-        data-overlay={usesOverlay ? "true" : "false"}
-        data-scrolled={scrolled ? "true" : "false"}
-        hidden
-      />
+      {/* Yalnızca kaydırma durumu. Hangi sayfada olunduğu CSS tarafında,
+          sayfanın render ettiği hero'dan okunuyor; burada üretilince ilk
+          boyamada yanlış oluyordu. */}
+      <span className="header-route-state" data-scrolled={scrolled ? "true" : "false"} hidden />
 
       <nav className="desktop-nav" aria-label="Ana navigasyon">
         {navigation.slice(0, -1).map((item) => {

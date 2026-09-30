@@ -153,15 +153,21 @@ button {
   opacity: 0;
 }
 
-.site-header:has(.header-route-state[data-overlay="true"][data-scrolled="false"]) {
+/* Hero'lu sayfalarda başlık saydam başlar.
+   Hangi sayfada olduğumuz, sayfanın gerçekten render ettiği hero'dan
+   okunuyor — daha önce bu bilgi istemcide `usePathname` ile üretiliyordu ve
+   ilk boyamada başlık koyu çıkıp hidrasyondan sonra saydama dönüyordu.
+   Kaydırma durumu hâlâ JS'ten geliyor, ama o yalnızca kullanıcı sayfayı
+   kaydırdıktan sonra devreye giriyor. */
+body:has(.photo-hero, .about-page__hero):has(.header-route-state[data-scrolled="false"]) .site-header {
   border-bottom-color: transparent;
 }
 
-.site-header:has(.header-route-state[data-overlay="true"][data-scrolled="false"])::before {
+body:has(.photo-hero, .about-page__hero):has(.header-route-state[data-scrolled="false"]) .site-header::before {
   opacity: 0;
 }
 
-.site-header:has(.header-route-state[data-overlay="true"][data-scrolled="false"])::after {
+body:has(.photo-hero, .about-page__hero):has(.header-route-state[data-scrolled="false"]) .site-header::after {
   opacity: 1;
 }
 
