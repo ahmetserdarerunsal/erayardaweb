@@ -33,7 +33,7 @@ function ActivityCard({
   // kategorisi olmayan kayıtta yedek olarak yalın bir söz kullanılıyor.
   const placeholderLabel = activity.categories[0]
     ? categoryLabel(activity.categories[0])
-    : "Paylaşım";
+    : "Faaliyet";
 
   return (
     <article className="activity-card">
@@ -72,13 +72,13 @@ export async function ActivityArchive() {
 
   return (
     // Başlık hero'da zaten var; tekrar eden etiket satırı kaldırıldı.
-    <section className="activity-archive" aria-label="Paylaşımlar arşivi">
+    <section className="activity-archive" aria-label="Faaliyet arşivi">
       <Container>
         {entries.length === 0 ? (
           <div className="activity-empty">
             <p className="status-label">İçerik hazırlığında</p>
             <p className="activity-empty__lead">
-              Paylaşımlar hazır olduğunda bu arşivde güncelden
+              Faaliyetler hazır olduğunda bu arşivde güncelden
               eskiye doğru yayımlanacaktır.
             </p>
           </div>

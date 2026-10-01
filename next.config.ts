@@ -70,6 +70,10 @@ const nextConfig: NextConfig = {
         destination: "https://ekremerayarda.com.tr/:path*",
         permanent: true,
       },
+      // Hakkında sayfası /ekrem-eray-arda adresindeydi; adres kısaltıldı,
+      // eskisi yayında olduğu için kalıcı yönlendirme bırakılıyor.
+      { source: "/ekrem-eray-arda", destination: "/hakkinda", permanent: true },
+      { source: "/ekrem-eray-arda/:path*", destination: "/hakkinda", permanent: true },
       // Eski istemciler /favicon.ico adresini doğrudan ister; ikon PNG
       // olduğu için 404 yerine oraya yönlendiriliyor.
       { source: "/favicon.ico", destination: "/icon.png", permanent: true },

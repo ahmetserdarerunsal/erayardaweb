@@ -3,7 +3,7 @@ import { getPublishedActivities, getSiteProfile } from "@/lib/public-content";
 
 const routes = [
   "",
-  "/ekrem-eray-arda",
+  "/hakkinda",
   "/faaliyetler",
   "/fotograflar",
   "/videolar",

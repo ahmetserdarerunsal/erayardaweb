@@ -10,7 +10,7 @@ import type { ActionResult } from "../fotograflar/actions";
 function refreshPages() {
   updateTag(CONTENT_TAGS.pages);
   revalidatePath("/");
-  revalidatePath("/ekrem-eray-arda");
+  revalidatePath("/hakkinda");
   revalidatePath("/admin/sayfalar");
 }
 

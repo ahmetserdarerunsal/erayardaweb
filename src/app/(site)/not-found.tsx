@@ -12,7 +12,7 @@ export default function SiteNotFound() {
     <ErrorNotice
       code="404"
       title="Sayfa bulunamadı"
-      description="Bu içerik yayımdan kaldırılmış ya da adresi değişmiş olabilir. Paylaşımlar arşivinden güncel içeriklere ulaşabilirsiniz."
+      description="Bu içerik yayımdan kaldırılmış ya da adresi değişmiş olabilir. Faaliyetler arşivinden güncel içeriklere ulaşabilirsiniz."
     />
   );
 }

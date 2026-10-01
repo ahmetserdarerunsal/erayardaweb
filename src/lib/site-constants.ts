@@ -1,8 +1,7 @@
 export const navigation = [
   { label: "Ana Sayfa", href: "/" },
-  { label: "Hakkında", href: "/ekrem-eray-arda" },
-  // Adres /faaliyetler olarak kaldı; yalnızca görünen ad değişti.
-  { label: "Paylaşımlar", href: "/faaliyetler" },
+  { label: "Hakkında", href: "/hakkinda" },
+  { label: "Faaliyetler", href: "/faaliyetler" },
   { label: "Fotoğraf", href: "/fotograflar" },
   { label: "Video", href: "/videolar" },
   { label: "İletişim", href: "/iletisim" },

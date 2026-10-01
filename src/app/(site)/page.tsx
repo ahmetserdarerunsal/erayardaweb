@@ -1,5 +1,4 @@
 import { Hero } from "@/components/sections/Hero";
-import { Intro } from "@/components/sections/Intro";
 import { getSiteProfile } from "@/lib/public-content";
 
 export default async function Home() {
@@ -18,7 +17,6 @@ export default async function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <Hero title={profile.title} />
-      <Intro title={profile.title} />
     </main>
   );
 }

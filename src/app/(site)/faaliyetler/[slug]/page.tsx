@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: ActivityPageProps): Promise<M
   const { slug } = await params;
   const activity = await getActivityBySlug(slug);
 
-  if (!activity) return { title: "Paylaşım bulunamadı" };
+  if (!activity) return { title: "Faaliyet bulunamadı" };
 
   return { title: activity.title, description: activity.summary };
 }
@@ -37,7 +37,7 @@ export default async function ActivityDetailPage({ params }: ActivityPageProps) 
     <main id="ana-icerik" className="activity-detail">
       <Container>
         <Link className="arrow-link activity-detail__back" href="/faaliyetler">
-          Paylaşımlar
+          Faaliyetler
           <span aria-hidden="true">↙</span>
         </Link>
 

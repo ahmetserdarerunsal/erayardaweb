@@ -174,7 +174,7 @@ export function ActivityManager({
       <section className="admin-card admin-manage-head">
         <div>
           <p className="admin-eyebrow">Gönderiden ekle</p>
-          <h2>Paylaşımlar</h2>
+          <h2>Faaliyetler</h2>
           <p>
             Bir X gönderisinin bağlantısını yapıştırın; metni, tarihi ve varsa görseli
             gönderiden alınır, gönderi de kaynak olarak kaydedilir. Kayıt taslak açılır —
@@ -219,7 +219,7 @@ export function ActivityManager({
           action={(formData) => run(() => createBlankActivity(String(formData.get("title") ?? "")))}
         >
           <div className="admin-field">
-            <label htmlFor="blank-title">Bağlantısı olmayan paylaşım</label>
+            <label htmlFor="blank-title">Bağlantısı olmayan faaliyet</label>
             <input id="blank-title" name="title" maxLength={180} placeholder="Başlık yazıp ekleyin" />
           </div>
           <button className="admin-btn admin-btn--ghost" disabled={pending}>
@@ -236,12 +236,12 @@ export function ActivityManager({
 
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2>Kayıtlı paylaşımlar</h2>
-          <span>{activities.length} paylaşım</span>
+          <h2>Kayıtlı faaliyetler</h2>
+          <span>{activities.length} faaliyet</span>
         </div>
 
         {activities.length === 0 ? (
-          <p className="admin-empty">Henüz paylaşım eklenmedi.</p>
+          <p className="admin-empty">Henüz faaliyet eklenmedi.</p>
         ) : (
           <div className="admin-record-list">
             {activities.map((activity) => {

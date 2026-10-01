@@ -477,12 +477,12 @@ export async function setActivityPublication(
   if (error) return { ok: false, message: error.message };
   await writeAudit(session, {
     action: publish ? "yayımladı" : "taslağa aldı",
-    entityType: "paylaşım",
+    entityType: "faaliyet",
     entityId: activityId,
   });
 
   refreshActivities();
-  return { ok: true, message: publish ? "Paylaşım yayımlandı." : "Paylaşım taslağa alındı." };
+  return { ok: true, message: publish ? "Faaliyet yayımlandı." : "Faaliyet taslağa alındı." };
 }
 
 export type UploadedCover = {
@@ -598,11 +598,11 @@ export async function deleteActivity(activityId: string): Promise<ActionResult> 
 
   await writeAudit(session, {
     action: "sildi",
-    entityType: "paylaşım",
+    entityType: "faaliyet",
     entityId: activityId,
     changes: { başlık: silinen?.title ?? "?" },
   });
 
   refreshActivities();
-  return { ok: true, message: "Paylaşım silindi." };
+  return { ok: true, message: "Faaliyet silindi." };
 }

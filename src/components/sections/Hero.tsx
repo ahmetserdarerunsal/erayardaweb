@@ -46,7 +46,7 @@ export function Hero({ title }: { title: string }) {
             <span className="photo-hero__title-mobile" aria-hidden="true">ARDA</span>
           </h1>
           <p className="photo-hero__role">{title}</p>
-          <Link className="photo-hero__link" href="#calismalar">
+          <Link className="photo-hero__link" href="/faaliyetler">
             Çalışmaları Keşfet
             <span aria-hidden="true">↓</span>
           </Link>

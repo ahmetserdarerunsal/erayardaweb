@@ -7,7 +7,7 @@ const allowedTags: Set<string> = new Set(Object.values(CONTENT_TAGS));
 
 const allowedPaths = new Set([
   "/",
-  "/ekrem-eray-arda",
+  "/hakkinda",
   "/faaliyetler",
   "/fotograflar",
   "/videolar",
